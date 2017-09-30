@@ -1,0 +1,311 @@
+\subsubsection{LDR - Versión 2 - ASM}
+En esta version implementamos el filtro acercándonos al modelo de procesamiento vectorial, para reducir accesos a memoria y operar con los canales rgb en simultaneo. Cada pixel esta compuesto por 4 componentes de 1byte cada una, en un registro XMM (16bytes) podemos entonces levantar hasta de a cuatro pixels de memoria.
+
+Supongamos que queremos procesar el pixel p$_{i,j}$ siguiendo la formula del filtro, necesitaríamos a todos estos pixels vecinos para calcular su valor final.
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c | c | c | c |}
+		\hline
+		p$_{i+2,j-2}$ & p$_{i+2,j-1}$ & p$_{i+2,j}$ & p$_{i+2,j+1}$ & p$_{i+2,j+2}$
+		\\ \hline
+		p$_{i+1,j-2}$ & p$_{i+1,j-1}$ & p$_{i+1,j}$ & p$_{i+1,j+1}$ & p$_{i+1,j+2}$
+		\\ \hline
+		p$_{i,j-2}$ & p$_{i,j-1}$ & \cellcolor{blue!25}p$_{i,j}$ & p$_{i,j+1}$ & p$_{i,j+2}$
+		\\ \hline
+		p$_{i-1,j-2}$ & p$_{i-1,j-1}$ & p$_{i-1,j}$ & p$_{i-1,j+1}$ & p$_{i-1,j+2}$
+		\\ \hline
+		p$_{i-2,j-2}$ & p$_{i-2,j-1}$ & p$_{i-2,j}$ & p$_{i-2,j+1}$ & p$_{i-2,j+2}$
+		\\ \hline
+	\end{tabular}
+\end{table}
+
+Se nos presenta un inconveniente a la hora de encarar el problema de esta manera, la cantidad de columnas no es múltiplo de cuatro, necesitaríamos operar de forma separada con la columna restante. Para solucionar esto aprovechando la funcionalidad del set de instrucciones SSE vamos a levantar las primeras cuatro columnas, luego las siguientes cuatro en otro registro, y vamos a utilizar instrucciones de desempaquetado para obtener los valores necesarios para cada pixel, lo que nos permitirá trabajar con cuatro pixels en simultaneo. Estos serán los pixels vecinos necesarios para procesar los 4 pixels en azul, ahora si múltiplo de 4, con lo que vamos a poder aprovechar el modelo de procesamiento SIMD.
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c | c | c | c | c | c | c |}
+		\hline
+		p$_{i+2,j-2}$ & p$_{i+2,j-1}$ & p$_{i+2,j}$ & p$_{i+2,j+1}$ & p$_{i+2,j+2}$ & p$_{i+2,j+3}$ & p$_{i+2,j+4}$ & p$_{i+2,j+5}$
+		\\ \hline
+		p$_{i+1,j-2}$ & p$_{i+1,j-1}$ & p$_{i+1,j}$ & p$_{i+1,j+1}$ & p$_{i+1,j+2}$ & p$_{i+1,j+3}$ & p$_{i+1,j+4}$ & p$_{i+1,j+5}$
+		\\ \hline
+		p$_{i,j-2}$ & p$_{i,j-1}$ & \cellcolor{blue!25}p$_{i,j}$ & \cellcolor{blue!25}p$_{i,j+1}$ & \cellcolor{blue!25}p$_{i,j+2}$ & \cellcolor{blue!25}p$_{i,j+3}$ & p$_{i,j+4}$ & p$_{i,j+5}$
+		\\ \hline
+		p$_{i-1,j-2}$ & p$_{i-1,j-1}$ & p$_{i-1,j}$ & p$_{i-1,j+1}$ & p$_{i-1,j+2}$ & p$_{i-1,j+3}$ & p$_{i-1,j+4}$ & p$_{i-1,j+5}$
+		\\ \hline
+		p$_{i-2,j-2}$ & p$_{i-2,j-1}$ & p$_{i-2,j}$ & p$_{i-2,j+1}$ & p$_{i-2,j+2}$ & p$_{i-2,j+3}$ & p$_{i-2,j+4}$ & p$_{i-2,j+5}$
+		\\ \hline
+	\end{tabular}
+\end{table}
+
+\newpage
+
+En nuestro algoritmo tenemos un ciclo de filas que dentro tiene un ciclo que itera de a cuatro columnas, ambos teniendo en cuenta el padding necesario para la aplicación del filtro. Necesitamos la suma de las componentes de los pixels vecinos, entonces en cada iteración lo que hacemos es limpiar unos registros que nos serviran para acumular la suma de las columnas, estos son XMM1, XMM3, XMM5, XMM7, y luego entramos a un ciclo al que llamamos cicloSuma que realiza lo siguiente:
+
+Levantamos en XMM4 (movdqu) los 4 pixels de la fila superior
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c | c | c | c | c | c | c |}
+		\hline
+		\cellcolor{blue!25}p$_{i+2,j-2}$ & \cellcolor{blue!25}p$_{i+2,j-1}$ & \cellcolor{blue!25}p$_{i+2,j}$ & \cellcolor{blue!25}p$_{i+2,j+1}$ & p$_{i+2,j+2}$ & p$_{i+2,j+3}$ & p$_{i+2,j+4}$ & p$_{i+2,j+5}$
+		\\ \hline
+		p$_{i+1,j-2}$ & p$_{i+1,j-1}$ & p$_{i+1,j}$ & p$_{i+1,j+1}$ & p$_{i+1,j+2}$ & p$_{i+1,j+3}$ & p$_{i+1,j+4}$ & p$_{i+1,j+5}$
+		\\ \hline
+		p$_{i,j-2}$ & p$_{i,j-1}$ & p$_{i,j}$ & p$_{i,j+1}$ & p$_{i,j+2}$ & p$_{i,j+3}$ & p$_{i,j+4}$ & p$_{i,j+5}$
+		\\ \hline
+		p$_{i-1,j-2}$ & p$_{i-1,j-1}$ & p$_{i-1,j}$ & p$_{i-1,j+1}$ & p$_{i-1,j+2}$ & p$_{i-1,j+3}$ & p$_{i-1,j+4}$ & p$_{i-1,j+5}$
+		\\ \hline
+		p$_{i-2,j-2}$ & p$_{i-2,j-1}$ & p$_{i-2,j}$ & p$_{i-2,j+1}$ & p$_{i-2,j+2}$ & p$_{i-2,j+3}$ & p$_{i-2,j+4}$ & p$_{i-2,j+5}$
+		\\ \hline
+	\end{tabular}	
+\end{table}
+
+
+
+Tendremos en XMM4 los 4 pixels de esta forma:
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		a$_4$ r$_4$ g$_3$ b$_3$ & a$_3$ r$_3$ g$_3$ b$_3$ & a$_2$ r$_2$ g$_2$ b$_2$ & a$_1$ r$_1$ g$_1$ b$_1$
+		\\ \hline
+		\multicolumn{4}{c}{XMM4} \\
+	\end{tabular}
+\end{table}
+
+
+Copiamos XMM4 al registro XMM2, y desempaquetamos los bytes de la parte baja del registro a words en XMM2 (punpcklbw XMM2, XMM9) y los bytes de la parte alta a words en XMM4 (punpckhbw XMM4, XMM9), dado que los componentes argb son char sin signo los completamos con XMM9 un registro que previamente seteamos en ceros. Esto es necesario porque debemos acumular los valores de las columnas en estos necesitamos entonces mas bits para guardar la suma de cada componente ya que podría no entrar en un byte.
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c |}
+		\hline
+		a$_4$ r$_4$ g$_3$ b$_3$ & a$_3$ r$_3$ g$_3$ b$_3$
+		\\ \hline
+		\multicolumn{2}{c}{XMM4} \\
+	\end{tabular}
+		\begin{tabular}{| c | c |}
+		\hline
+		a$_2$ r$_2$ g$_2$ b$_2$ & a$_1$ r$_1$ g$_1$ b$_1$
+		\\ \hline
+		\multicolumn{2}{c}{XMM2} \\
+	\end{tabular}
+\end{table}
+
+Análogamente procesamos las 4 columnas siguientes en los registros XMM8, XMM6
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c | c | c | c | c | c | c |}
+		\hline
+		p$_{i+2,j-2}$ & p$_{i+2,j-1}$ & p$_{i+2,j}$ & p$_{i+2,j+1}$ & \cellcolor{blue!25}p$_{i+2,j+2}$ & \cellcolor{blue!25}p$_{i+2,j+3}$ & \cellcolor{blue!25}p$_{i+2,j+4}$ & \cellcolor{blue!25}p$_{i+2,j+5}$
+		\\ \hline
+		p$_{i+1,j-2}$ & p$_{i+1,j-1}$ & p$_{i+1,j}$ & p$_{i+1,j+1}$ & p$_{i+1,j+2}$ & p$_{i+1,j+3}$ & p$_{i+1,j+4}$ & p$_{i+1,j+5}$
+		\\ \hline
+		p$_{i,j-2}$ & p$_{i,j-1}$ & p$_{i,j}$ & p$_{i,j+1}$ & p$_{i,j+2}$ & p$_{i,j+3}$ & p$_{i,j+4}$ & p$_{i,j+5}$
+		\\ \hline
+		p$_{i-1,j-2}$ & p$_{i-1,j-1}$ & p$_{i-1,j}$ & p$_{i-1,j+1}$ & p$_{i-1,j+2}$ & p$_{i-1,j+3}$ & p$_{i-1,j+4}$ & p$_{i-1,j+5}$
+		\\ \hline
+		p$_{i-2,j-2}$ & p$_{i-2,j-1}$ & p$_{i-2,j}$ & p$_{i-2,j+1}$ & p$_{i-2,j+2}$ & p$_{i-2,j+3}$ & p$_{i-2,j+4}$ & p$_{i-2,j+5}$
+		\\ \hline
+	\end{tabular}	
+\end{table}
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c |}
+		\hline
+		a$_8$ r$_8$ g$_8$ b$_8$ & a$_7$ r$_7$ g$_7$ b$_7$
+		\\ \hline
+		\multicolumn{2}{c}{XMM8} \\
+	\end{tabular}
+		\begin{tabular}{| c | c |}
+		\hline
+		a$_6$ r$_6$ g$_6$ b$_6$ & a$_5$ r$_5$ g$_5$ b$_5$
+		\\ \hline
+		\multicolumn{2}{c}{XMM6} \\
+	\end{tabular}
+\end{table}
+
+Ahora sumamos los valores de las componentes (ahora en words) que tenemos en los registros que habíamos limpiado antes del ciclo utilizando paddw XMM1, XMM2, paddw XMM3, XMM4, paddw XMM5, XMM6, paddw XMM7, XMM8. Nos desplazamos una fila abajo, y repetimos este ciclo. Entonces al final del cicloSuma tendremos:
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c |}
+		\hline
+		a$_c8$ r$_c8$ g$_c8$ b$_c8$ & a$_c7$ r$_c7$ g$_c7$ b$_c7$
+		\\ \hline
+		\multicolumn{2}{c}{XMM7} \\
+	\end{tabular}
+	\begin{tabular}{| c | c |}
+		\hline
+		a$_c6$ r$_c6$ g$_c6$ b$_c6$ & a$_c5$ r$_c5$ g$_c5$ b$_c5$
+		\\ \hline
+		\multicolumn{2}{c}{XMM5} \\
+	\end{tabular}
+	\begin{tabular}{| c | c |}
+		\hline
+		a$_c6$ r$_c6$ g$_c6$ b$_c6$ & a$_c5$ r$_c5$ g$_c5$ b$_c5$
+		\\ \hline
+		\multicolumn{2}{c}{XMM3} \\
+	\end{tabular}
+	\begin{tabular}{| c | c |}
+		\hline
+		a$_c6$ r$_c6$ g$_c6$ b$_c6$ & a$_c5$ r$_c5$ g$_c5$ b$_c5$
+		\\ \hline
+		\multicolumn{2}{c}{XMM1} \\
+	\end{tabular}
+\end{table}
+
+Donde k$_cn$ con k $\leftarrow {a,r,g,b}$ y $1 \leq n \leq 8$ corresponde a la suma de la componente k en la columna n. Como en el filtro el canal alpha no es parte de la suma que debemos calcular, guardamos en XMM14 una mascara para limpiarlo
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c | c | c | c | c | c | c |}
+		\hline
+		0x0000 & 0xFFFF & 0xFFFF & 0xFFFF & 0x0000 & 0xFFFF & 0xFFFF & 0xFFFF 
+		\\ \hline
+		\multicolumn{8}{c}{XMM14} \\
+	\end{tabular}
+\end{table}
+
+\newpage
+
+Haciendo pand XMM1, XMM14, pand XMM3, XMM14, pand XMM5, XMM14, pand XMM7, XMM14.
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c |}
+		\hline
+		0 r$_c8$ g$_c8$ b$_c8$ & 0 r$_c7$ g$_c7$ b$_c7$
+		\\ \hline
+		\multicolumn{2}{c}{XMM7} \\
+	\end{tabular}
+	\begin{tabular}{| c | c |}
+		\hline
+		0 r$_c6$ g$_c6$ b$_c6$ & 0 r$_c5$ g$_c5$ b$_c5$
+		\\ \hline
+		\multicolumn{2}{c}{XMM5} \\
+	\end{tabular}
+	\begin{tabular}{| c | c |}
+		\hline
+		0 r$_c6$ g$_c6$ b$_c6$ & 0 r$_c5$ g$_c5$ b$_c5$
+		\\ \hline
+		\multicolumn{2}{c}{XMM3} \\
+	\end{tabular}
+	\begin{tabular}{| c | c |}
+		\hline
+		0 r$_c6$ g$_c6$ b$_c6$ & 0 r$_c5$ g$_c5$ b$_c5$
+		\\ \hline
+		\multicolumn{2}{c}{XMM1} \\
+	\end{tabular}
+\end{table}
+
+Desempaquetamos nuevamente la suma de estos componentes, esta vez de word a dword, y nos quedaremos con:
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		0 & r$_c8$ & g$_c8$ & b$_c8$
+		\\ \hline
+		\multicolumn{4}{c}{XMM8} \\
+	\end{tabular}
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		0 & r$_c7$ & g$_c7$ & b$_c7$
+		\\ \hline
+		\multicolumn{4}{c}{XMM7} \\
+	\end{tabular}
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		0 & r$_c6$ & g$_c6$ & b$_c6$
+		\\ \hline
+		\multicolumn{4}{c}{XMM6} \\
+	\end{tabular}
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		0 & r$_c5$ & g$_c5$ & b$_c5$
+		\\ \hline
+		\multicolumn{4}{c}{XMM5} \\
+	\end{tabular}
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		0 & r$_c4$ & g$_c4$ & b$_c4$
+		\\ \hline
+		\multicolumn{4}{c}{XMM4} \\
+	\end{tabular}
+		\begin{tabular}{| c | c | c | c |}
+		\hline
+		0 & r$_c3$ & g$_c3$ & b$_c3$
+		\\ \hline
+		\multicolumn{4}{c}{XMM3} \\
+	\end{tabular}
+		\begin{tabular}{| c | c | c | c |}
+		\hline
+		0 & r$_c2$ & g$_c2$ & b$_c2$
+		\\ \hline
+		\multicolumn{4}{c}{XMM2} \\
+	\end{tabular}
+		\begin{tabular}{| c | c | c | c |}
+		\hline
+		0 & r$_c1$ & g$_c1$ & b$_c1$
+		\\ \hline
+		\multicolumn{4}{c}{XMM1} \\
+	\end{tabular}
+\end{table}
+
+Sumamos las sumas de las primeras 5 columnas en XMM4 (paddd).
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		0 & r$_c1$+r$_c2$+r$_c3$+r$_c4$+r$_c5$ & g$_c1$+g$_c2$+g$_c3$+g$_c4$+g$_c5$ & b$_c1$+b$_c2$+r$_c3$+b$_c4$+b$_c5$
+		\\ \hline
+		\multicolumn{4}{c}{XMM4} \\
+	\end{tabular}
+\end{table}
+
+Y luego hacemos la suma horizontal de XMM4 (phaddd), el resultado sera sumrgb correspondiente al pixel p$_{i,j}$
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		sumrgb$_{i,j}$ & sumrgb$_{i,j}$ & sumrgb$_{i,j}$ & sumrgb$_{i,j}$
+		\\ \hline
+		\multicolumn{4}{c}{XMM4} \\
+	\end{tabular}
+\end{table}
+
+Preparamos también la suma horizontal de las otras columnas que nos servirían posteriormente para calcular sumrgb para los pixels p$_{i,j+1}$, p$_{i,j+2}$, p$_{i,j+3}$
+
+Ahora estamos listos para procesar los cuatro pixels, los levantamos en XMM10 (movdqu).
+
+%poner tabla xmm10
+
+Vamos a operar con floats de precision simple, en XMM5 convertimos los dwords empaquetados en XMM4 a floats
+
+%tabla xmm5
+
+Desempaquetamos el primer pixel de los 4 que levantamos en XMM10 en XMM11, lo convertimos a floats para operar, y aplicamos las operaciones correspondientes a la formula del filtro.
+
+%resultado xmm11
+
+Ahora tenemos el pixel resultante en XMM11 con cada componente empaquetada como float, convertimos nuevamente a dword y la empaquetamos a byte
+%
+Finalmente la movemos a XMM13 donde pondremos el resultado.
+%
+Ahora pasamos a procesar el pixel siguiente, para ello debemos obtener sumrgb$_{i,j+1}$, entonces a XMM4 le restamos la primer columna, y le sumamos sexta
+%
+Repetimos lo anterior, esta vez desempaquetando el segundo pixel.
+%
+Ahora como con el resultado en XMM11 debemos shiftearlo a izquierda 4 bytes, y colocarlo en XMM13 con por.
+%
+Análogamente con los dos pixels restantes, y colocamos el resultado final en dst.
+%
+
+		%\color{red}{a3} & r3 & g3 & b3 & a2 & r2 & g2 & b2

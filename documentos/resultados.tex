@@ -1,0 +1,35 @@
+\subsection*{Presentación}
+En esta sección, presentamos las pruebas experimentales sobre las implementaciones de los filtros, los resultados obtenidos en cada una de ellas y comentarios sobre los mismos. El objetivo de esta sección es evaluar y comparar el rendimiento de las diferentes implementaciones y así obtener conclusiones acerca de las características del modelo de programación SIMD.
+
+\subsection*{Metodología}
+
+En nuestros experimentos, buscamos realizar una comparación de performance de las implementaciones de cada filtro para sus versiones en C y en ASM.
+Las versiones de C fueron compiladas utilizando el nivel de optimización \textbf{O3}, ya que realizando mediciones preeliminares observamos que la cantidad de clocks utilizados, para cada una de estas, era mucho menor con ese nivel de optimizacion y dado el objetivo de buscar superar en rendimiento a las versiones de C con las de ASM optamos por comparar con las de mejor velocidad posible.
+Por otro lado, intentamos que no difieran demasiado los algoritmos entre las implementaciones de C y ASM, en cuanto a las secuencia de acceso a datos, y los tipos de datos utilizados para guardar los valores, para de esta forma tener una comparacion que refleje lo mas fielmente posible la ventaja de utilizar instrucciones SIMD.
+
+Para realizar las mediciones hemos modificado el programa tp2.c para realizar una medición de tiempo por cada aplicación de filtro, ademas desarrollamos scripts en python para poder automatizar las ejecuciones y la recoleccion de resultados, y asi poder analizar los resultados de una forma consistente y reproducible, tanto en diferentes maquinas como luego de modificar los filtros. 
+
+Para hacer las comparaciones, decidimos utilizar el minimo de ejecutar 100 veces el mismo filtro, luego de haber observado que el histograma generado por las ejecucion de 500 veces el mismo filtro generaba una mayor cantidad de resultados cerca del minimo, y luego de analizar que tenia sentido comparar la minima cantidad de clocks utilizados por un filtro y de esta manera descartar la mayor cantidad posible de interferencias producidas por el sitstema opertaivo.
+
+\begin{figure}[!h]
+	\centering
+\includegraphics[width=200px]{imgs/distribucion.png}
+\end{figure}
+
+
+De esta forma, hemos realizado las mediciones de tiempos sobre nuestras implementaciones utilizando imágenes de distintos tamaños. Realizamos 2 analisis diferentes, uno utilizando imagenes con un mismo ancho o un mismo alto pero incrementando la otra componente, y comparando estos valores para una misma implementacion, con el fin de observar si se generaban resultados diferentes para una misma cantidad de pixeles pero con diferente organizacion. 
+
+Para el segundo analisis y con el cual realizamos la comparación entre diferentes implementaciones utilizamos imagenes de tamaño creciente para poder observar si para diferentes cantidades de pixels los filtros mantenian la misma relacion de velocidad.
+Las dimensiones utilizadas para el primer analisis fueron imagenes de 16x16*2$^{i}$ y 16*2$^{i}$x16 y para el segundo de 16*2$^{i}$x16*2$^{i}$ (con 0 $\leq$ i $\leq$ 9)
+
+\newpage
+\subsection{Cropflip}
+\input{resultadosCropflip}
+
+\newpage
+\subsection{Sepia}
+\input{resultadosSepia}
+
+\newpage
+\subsection{Low-Dyn Range}
+\input{resultadosLDR}

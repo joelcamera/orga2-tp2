@@ -1,0 +1,10 @@
+Gracias a los experimentos de este trabajo, pudimos observar las ventajas de el modelo de procesamiento SIMD a la hora de implementar programas que realicen operaciones paralelizables, tanto en comparación con las implementaciones en C como entre las del lenguaje de ensamblador.
+
+Por un lado, se puede observar que la performance que tienen las implementaciones en lenguaje de ensamblador con el modelo de procesamiento SIMD fue muy superior en estos casos a las implementaciones en C, que sólo procesan píxeles de forma independiente, incluso estando optimizadas con O3. 
+
+Por otro lado, también pudimos observar que realizando las mismas funciones en lenguage de ensamblador con el modelo de procesamiento SIMD pero con algunas modificaciones en las operaciones de los mismas generan mejoras de performance, aunque no tan notorias en este caso en comparación con las implementaciones de C. 
+
+Esto nos llevo a repensar como generar mejoras de performance en nuestras implementaciones. 
+Quedaria pendiente para otro analisis, un trabajo mas detallado de comparacion entre distintas formas de utilizar simd, para encontrar metodos mas eficientes para resolver problemas comunes, como el desempaquetado de datos, operaciones aritmeticas, utilizacion de punto flotantes o enteros, etc y la identificaciones de instrucciones particularmente costosas y formas de mitigar su impacto.
+
+Por último, quda claro que realizar un programa en lenguaje de ensamblador es mas costoso en tiempo humano, que realizarlo en un lenguaje de más alto nivel. Por este motivo es evidente que la utilizacion de ASM y SIMD en particular, quedan restringidas a situaciones donde la ganancia de utilizar este metodo justifique el esfuerzo invertido.

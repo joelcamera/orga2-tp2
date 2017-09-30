@@ -1,0 +1,343 @@
+\subsubsection{Low Dynamic Range (con preprocesado)}
+
+\subsubsection*{Preprocesado}
+
+Para estas versiones de los filtros LDR (una en C y una en ASM) decidimos realizar las implementaciones teniendo como foco el minimizar los accesso a memoria.
+Para esto reformulamos la formula original separandola en 4 pasos.
+\begin{enumerate}
+\item La suma de las componentes de los pixels.
+\item La suma por filas de los pixels cercanos.
+\item La suma vertical de estas sumas parciales por fila.
+\item La aplicacion de la formula a cada componente del pixel.
+\end{enumerate}
+
+
+Definimos para cada pixel una variable P que representa la suma de sus componentes
+\begin{center}
+P$_{i,j}$ = R$_{i,j}$ + G$_{i,j}$ + B$_{i,j}$
+\end{center}
+
+Definimos C como la cantidad de columnas por fila.
+Luego definimos una matriz auxiliar de 5 filas x C donde calculamos las sumas de 5 P$_{i,j}$ consecutivos.
+\begin{center}
+FILA$_{i mod 5,j}$ = P$_{i,0}$+..+P$_{i,4}$ | P$_{i,1}$+..+P$_{i,5}$ | .. | P$_{i,C-5}$+..+P$_{i,C-1}$
+\end{center}
+
+Luego asignamos en una variable el resultado de la suma vertical de las filas y realizamos el calculo necesario con el parametro $\alpha$
+\begin{center}
+SumaVertical$_{i,j}$ = FILA$_{(i-2) mod 5,j}$ + FILA$_{(i-1) mod 5,j}$ + FILA$_{i mod 5,j}$ + FILA$_{(i+1) mod 5,j}$+FILA$_{(i+2) mod 5,j}$ \\
+ \[ SumaRGBP_{i,j} = \frac{ \alpha * SumaVertical_{i,j} }{MAX} \]
+\end{center}
+
+Por ultimo aplicamos a cada componente R,G,B de un pixel el calculo necesario para el filtro LDR
+Donde D es el pixel de destino y O el de origen.
+\begin{center}
+\[  D^{k}_{i,j}  =  MIN( MAX(  O^{k}_{i,j} + SumaRGBP_{i,j} * O^{k}_{i,j}, 0), 255) \] 
+ (Manteniendo que los dos pixeles de margen son iguales en el destino al origen)
+ \end{center}
+
+
+\subsubsection*{Accesos a memoria}
+
+Con esta aproximacion logramos disminuir la cantidad de accesos a memoria, de los que a priori parecian necesarios observando la formula original, ya que para calcular el valor de un pixel de destino era necesario acceder al pixel de origen mas 24 pixeles circundantes y por consiguiente un mismo pixel podia ser accedido 25 veces. \\
+De esta manera al pixel de origen se lo accede 2 veces, una para calcular la suma de sus componentes y otra vez para aplicar la formula ldr con la sumargbp al pixel, pero es necesario una escritura mas, para guardar en el buffer de fila la suma de los P consecutivos, y 5 lecturas de ese buffer para realizar la suma vertical. \\
+Luego en la version ASM tambien realizamos diferentes optimizaciones utilizando instrucciones SSD lo que nos permitio operar de a 4 pixeles en simultaneo reduciendo aun mas los accesos a memoria.
+
+\subsubsection*{Version C} (ldr_c2.c)
+
+La implementacion en C funciona con un loop anidado sobre la cantidad de filas y la cantidad de columnas, pero internamente por cada posicion X,Y recorrida se realizan 2 acciones bien diferenciadas, que podrian haber sido separadas en otras funciones para clarificar el codigo, pero que no fue hecho para que no tuviera nigun impacto en la performance.\\
+La primera accion es la suma de componentes de cada pixel, la suma de pixeles consecutivos y el guardado en el buffer y la segunda accion es la suma vertical, la aplicacion de la suma por componente y el guardado del pixel resultante.\\
+En esta version, con el fin de no tener que repetir algunos calculos (y accesos extra en el peor de los casos) se mantiene un vector (llamado presuma) con el valor de la suma de componentes de los ultimos 5 pixeles por separado.
+De esta manera cuando se tiene un P nuevo, la suma de los 5 pixeles es sumaAnterior + P - presuma$_{i-4}$ 
+
+\begin{lstlisting}[frame=single]
+INT buffer[5][columnasXFila]
+PTODO y <- RANGO[0..filas] do { 
+  INT presuma[5]
+  PTODO x <- RANGO[0..columnas] do {
+    P <- sumaComponentes(SRC[y][x])
+    presuma[x mod 5] <- p
+    SI x >= 4 {
+	  buffer[y mod 5] = sumaElementos(presuma)
+	  SI y >= 4 {
+	    sumaRgbp <- (alpha * sumaVertical(buffer[0..5][x]))/MAX
+	    DEST[y-2][x-2]r <- SRC[y-2][x-2]r + SRC[y-2][x-2]r * sumaRgbp
+	    DEST[y-2][x-2]g <- SRC[y-2][x-2]g + SRC[y-2][x-2]g * sumaRgbp
+	    DEST[y-2][x-2]b <- SRC[y-2][x-2]b + SRC[y-2][x-2]b * sumaRgbp
+	    DEST[y-2][x-2]a <- SRC[y-2][x-2]a
+	  }
+	}
+  }
+}
+\end{lstlisting}
+
+
+\newpage
+\subsubsection*{Version ASM} (ldr_asm3.asm)
+
+La implementacion en ASM utiliza diversas funciones de SSE para reducir la cantidad de accesos a memoria asi como la cantidad de operaciones necesarias.
+
+Para esto se realiza un ciclo sobre las filas y luego anidado otro sobre las columnas.
+
+Al iniciar el ciclo sobre una fila, se realizan las siguientes operaciones con el fin de obtener un calculo sobre los primero 4 pixels de las fila de forma diferenciada.
+
+Se procesan 4 pixeles en simultaneo, cargando en un registro xmm 16 bytes juntos (movdqu)
+
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c | c | c | c | c | c | c | c | c | c | c | c | c |}
+		\hline
+		a3 & r3 & g3 & b3 & a2 & r2 & g2 & b2 & a1 & r1 & g1 & b1 & a0 & r0 & g0 & b0  \\ \hline
+		%\multicolumn{16}{c}{XMM0 $=$ XMM2 $=$ XMM3 $=$ XMM4} \\
+	\end{tabular}
+\end{table}
+
+
+Se utilizan mascaras de shuffle para obtener en registros xmm diferentes las componentes de 4 pixels. (pshufb)
+Luego se suman los registros obteniendo como resultado en un solo registro la suma componente a componente de los 4 pixels. (paddd)
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		b3+g3+r3 & b2+g2+r2 & b1+g1+r1 & b0+g0+r0 \\ \hline
+		%\multicolumn{4}{c}{XMM2}
+	\end{tabular}
+\end{table}
+
+
+Despues se convierten las sumas a punto flotante (cvdq2s) y se reserva este resultado que lo llamaremos "parcialesAnterior"
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		float(b3+g3+r3) & float(b2+g2+r2) & float(b1+g1+r1) & float(b0+g0+r0) \\ \hline
+		\multicolumn{4}{c}{parcialesAnterior}
+	\end{tabular}
+\end{table}
+
+
+
+Luego se utiliza la suma horizontal para asi obtener la suma de los 4 pixels (haddps) y se reserva este valor tambien que lo llamaremos "sumaAnterior"
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		X & X & X & P3+P2+P1+P0 \\ \hline
+		\multicolumn{4}{c}{sumaAnterior}
+	\end{tabular}
+\end{table}
+
+
+
+Una vez que tenemos estos valores calculados, inicia el ciclo propiamente dicho sobre las columnas.
+Primero se realizan los pasos descriptos para obtener parcialesAnteriores y sumaAnterior pero ahora los llamaremos parcialesNuevos y sumaNueva. (Donde Pn es Rn+Gn+Bn)
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		P7 & P6 & P5 & P4 \\ \hline
+		\multicolumn{4}{c}{parcialesNuevos} 
+	\end{tabular}
+\end{table}
+
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		X & X & X & P7+P6+P5+P4 \\ \hline
+		\multicolumn{4}{c}{sumaNueva}
+	\end{tabular}
+\end{table}
+
+
+
+Luego utilizando un shufps entre sumaAnterior y sumaNueva generaremos en un registro llamado total con
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+        (P7+P6+P5+P4) & (P7+P6+P5+P4) & (P3+P2+P1+P0) & (P3+P2+P1+P0) \\ \hline
+		\multicolumn{4}{c}{total}
+	\end{tabular}
+\end{table}
+
+De la misma manera operando sobre parcialesAnterior y parcialesNuevos tendremos
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+        P3 & P3 & P4 & P4 \\ \hline
+	\end{tabular}
+\end{table}
+
+                  
+Y agregandolo a total
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+        (P7+P6+P5+P4)+P3 & (P7+P6+P5+P4)+P3 & (P3+P2+P1+P0)+P4 & (P3+P2+P1+P0)+P4 \\ 
+        \hline
+		\multicolumn{4}{c}{total}
+	\end{tabular}
+\end{table}
+
+\newpage
+Luego generemos:   
+                  
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+        X   &  P2  &  P5  &  X \\ \hline
+	\end{tabular}
+\end{table}
+                  
+Realizando un and con una mascara para mantener los dos floats del medio
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+       0   &    P2   &  P5   &  0 \\ \hline
+	\end{tabular}
+\end{table}
+
+                  
+Sumandolo a total
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+        (P7+P6+P5+P4)+P3 & (P7+P6+P5+P4)+P3+P2 & (P3+P2+P1+P0)+P4+P5 & (P3+P2+P1+P0)+P4 \\ \hline
+		\multicolumn{4}{c}{total}
+	\end{tabular}
+\end{table}
+
+
+Generamos con shuffle:
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+        X   &  P7  &  P0  &  X \\ \hline
+	\end{tabular}
+\end{table}
+                  
+Realizando un and con una mascara para mantener los dos floats del medio:
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+       0   &    P7   &  P0   &  0 \\ \hline
+	\end{tabular}
+\end{table}
+
+Restandolo del total
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+        (P7+P6+P5+P4+P3) & (P6+P5+P4+P3+P2) & (P5+P4+P3+P2+P1) & (P4+P3+P2+P1+P0)\\ 
+        \hline
+		\multicolumn{4}{c}{total}
+	\end{tabular}
+\end{table}
+
+Luego se guarda en el buffer este total y se reasignan los valores nuevos como anteriores: \\
+\begin{lstlisting}[frame=single]
+buffer[y mod 5][2..5] <- total
+parcialesAnterior <- parcialesNuevas 
+sumaAnterior <- sumaNueva
+\end{lstlisting}
+
+
+Luego siempre y cuando se esta procesando la 5 fila o mas, (y por ende se tienen suficientes filas como para aplicar el filtro LDR ) se realizan la siguientes operaciones.
+
+Se realiza un loop de 5 iteraciones para sumar verticalmente 4 totales del buffer, pero tomando como posicion X dos pixeles hacia atras de lo que se esta procesando para realizar la parte de suma de totales. 
+Para el ejemplo utilizado, estando parados apuntando a P4, se tomarian las columnas de P2, P3, P4 y P5.
+\begin{lstlisting}[frame=single]
+sumaTotal = {0,0,0,0}
+PTODO y <- RANGO[0..4] do { 
+  sumaTotal += buffer[y][2..5]
+}
+\end{lstlisting}
+
+
+
+Luego realizamos la multiplicacion por el alpha y la division por el maximo con mulps y divps, y asi obtendremos los 4 valores que llamamos sumaRGBP para cada posicion.
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{c | c | c | c | c |}
+		\hline
+        F$_{y}$ = & (P7+..+P3)$_{y}$ & (P6+..+P2)$_{y}$& (P5+..+P1)$_{y}$ & (P4+..+P0)$_{y}$\\ \hline
+        F$_{y-1}$ = & (P7+..+P3)$_{y-1}$ & (P6+..+P2)$_{y-1}$ & (P5+..+P1)$_{y-1}$ & (P4+..+P0)$_{y-1}$\\ \hline
+        F$_{y-2}$ = & (P7+..+P3)$_{y-2}$ & (P6+..+P2)$_{y-2}$ & (P5+..+P1)$_{y-2}$ & (P4+..+P0)$_{y-2}$\\ \hline
+        F$_{y-3}$ = & (P7+..+P3)$_{y-3}$ & (P6+..+P2)$_{y-3}$ & (P5+..+P1)$_{y-3}$ & (P4+..+P0)$_{y-3}$\\ \hline
+        F$_{y-4}$ = & (P7+..+P3)$_{y-4}$ & (P6+..+P2)$_{y-4}$ & (P5+..+P1)$_{y-4}$ & (P4+..+P0)$_{y-4}$\\ \hline
+        sumaTotal$_{y-2}$ = & F$_{y,7..3}$+..+F$_{y-4,7..3}$ 
+                           & F$_{y,6..2}$+..+F$_{y-4,6..2}$  
+                           & F$_{y,5..1}$+..+F$_{y-4,5..1}$ 
+                           & F$_{y,4..0}$+..+F$_{y-4,4..0}$\\ \hline
+        sRGBP$_{y-2}$ = & ST$_{y-2,7..3}$ * $\alpha$ / MAX 
+                           & ST$_{y-2,6..2}$ * $\alpha$ / MAX 
+                           & ST$_{y-2,5..1}$ * $\alpha$ / MAX 
+                           & ST$_{y-2,4..0}$ * $\alpha$ / MAX \\ \hline
+
+	\end{tabular}
+\end{table}
+
+
+
+Luego operaremos sobre 4 pixeles de la imagen de origen pero en la posicion Y-2 y X-2 en relacion a la actual.
+De la misma manera que antes se leyeron 4 pixels, y utilizando pshufb se separan las componentes.
+
+\newpage
+Luego se aplica sobre las 3 componentes (por separadoo) de los 4 pixels (juntos) el filtro que consiste en multiplicarlo por sumaRGBP y agregarle la componente.
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+        R5 * sRGBP + R5 & R4 * sRGBP + R4 & R3 * sRGBP + R3 & R2 * sRGBP + R2 \\  \hline
+        G5 * sRGBP + G5 & G4 * sRGBP + G4 & G3 * sRGBP + G3 & G2 * sRGBP + G2 \\  \hline
+        B5 * sRGBP + B5 & B4 * sRGBP + B4 & B3 * sRGBP + B3 & B2 * sRGBP + B2 \\  \hline
+	\end{tabular}
+\end{table}
+
+
+Ademas se realiza una comparacion utilizando una mascara de ceros y cmpltps y se realiza un and de la mascara y la componente, para asi asegura que todos los valores son mayores o iguales que cero.
+
+*Se convierte con cvtps2dq cada componente a packed double word, luego de dword a word con saturacion sin signo y luego de word a byte tambien con saturacion sin signo, y reordenando las componentes para rearmar la estructura bgra_t.
+
+Finalmente se realiza un and de los pixeles orginales para tener solo el canal alfa, y se realiza un or con los datos calculados y esto se guarda en la posicion de memoria de destino (calculada de la misma forma que la de origen.) 
+\begin{footnotesize}
+*Esta parte es igual a la descripta para el empaquetamiento de sepia_asm
+\end{footnotesize}
+
+
+\begin{table}[!htbp]
+	\centering
+	\footnotesize
+	\begin{tabular}{| c | c | c | c | c | c | c | c | c | c | c | c | c | c | c | c |}
+		\hline
+		A5 & $_{ldr}$R5 & $_{ldr}$G5 & $_{ldr}$B5 & A4 & $_{l}$R4 & $_{l}$G4 & $_{l}$B4 & A3 & $_{l}$R3 & $_{l}$G3 & $_{l}$B3 & A2 & $_{l}$R2 & $_{l}$G2 & $_{l}$B2  \\ \hline
+		\multicolumn{16}{c}{ dst[y-2][x-2..x+2] } \\
+	\end{tabular}
+\end{table}
+

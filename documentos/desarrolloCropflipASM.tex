@@ -1,0 +1,20 @@
+\subsubsection{Cropflip - Versión 1/2/3 - ASM}
+
+Las implementaciones de ASM trabajan sobre la imagen como un vector en vez de una matriz.
+Para esto se manejan dos punteros. El de destino apuntando al principio de la ultima fila. 
+Y en el de origen se saltean de la posición de memoria de inicio el offsetY * anchoFila * bytesPorPixel.
+
+El ciclo de repite tamY veces y realiza lo siguiente:
+\begin{enumerate}
+
+\item Avanza el puntero de origen offsetX * bytesPorPixel.
+\item Se copian del origen al destino la cantidad tamX de pixels.
+\item Se saltean los pixels no copiados de la fila. 
+	{\\ ((anchoDeFila - tamX - offsetX) * bytesPorPixel)}
+
+\end{enumerate}
+
+Las 3 versiones de ASM difieren en el punto 2 que es la forma de copiar los pixels. 
+La versión 1 utiliza rep movsq (que repite la copia de quadwords)
+La versión 2 realiza un ciclo copiando manualmente de [SRC] a un registro y luego a [DST]
+La versión 3 realiza lo mismo que la 2 pero utilizando un registro XMM y por ende copiando de a 16 bytes.

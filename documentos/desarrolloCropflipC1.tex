@@ -1,0 +1,12 @@
+\subsubsection{Cropflip - Versión 1 - C}
+La implementación de la versión en C funciona con dos loops anidados, recorriendo desde offsetY una cantidad de tamY de filas, y desde el offsetX una cantidad tamX de columnas.
+Luego para cada posición se copia al destino la estructura \textbf{bgra_t} completa.
+
+\begin{lstlisting}[frame=single]
+PTODO y <- RANGO[maxint..0] do { 
+
+	PTODO x <- RANGO[0..tamX] do {
+		DEST[ tamY - y - 1][x] <- SRC[ y + offsetY ][ x + offsetX ]
+	}
+}
+\end{lstlisting}

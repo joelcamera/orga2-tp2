@@ -1,0 +1,13 @@
+El objetivo de este Trabajo Práctico es buscar una primera aproximación al modelo de procesamiento SIMD. Para esto este trabajo se compone de dos partes, la primera es de aplicar los conceptos aprendidos en clase sobre programación vectorizada y luego realizar un análisis experimental de los rendimientos obtenidos.
+
+El campo de aplicación tomado es el procesamiento de imágenes. Para esto se nos encomendó la tarea de desarrollar en C y lenguaje de ensamblador tres filtros de imágenes, luego plantear hipótesis, experimentar y sacar conclusiones respecto de cada implementación.
+
+El análisis de las implementaciones se lleva a cabo con un carácter científico y con las metodologías correspondientes.
+
+Los filtros en cuestión fueron \textit{Cropflip}, \textit{Sepia} y \textit{Low-Dyn Range}.
+El primero, es la unión de dos filtros: crop y vertical-flip. En donde dado una imagen, la cantidad de filas y columnas a cortar y la coordenada donde comenzar, genera una imagen de salida con la parte recortada de la imagen de entrada y volteada verticalmente.
+El segundo, dado una imagen, genera una imagen de salida con la misma primer imagen pero con un cambio de color que se hace en cada uno de los pixels de la imagen de entrada. El tercero, dada una imagen y un coeficiente entero $\alpha$, aplica a un efecto a la imagen modificándola según su iluminación.
+
+Para \textit{Cropflip}, se realizó el estudio de rendimiento entre la implementación en C y tres implementaciones en ASM de las cuales una de ellas es utilizando SIMD.
+En el caso de \textit{Sepia}, también se realizó un estudio de rendimiento entre una implementación en C y dos implementaciones en ASM que utilizan SIMD.
+En lo que respecta a \textit{Low-Dyn Range}, también se realizo la prueba de performance entre las dos implementaciones de C y otras tres implementaciones de ASM utilizando SIMD.

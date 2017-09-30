@@ -1,0 +1,25 @@
+\subsubsection{Sepia - Versión 2 - ASM}
+
+En nuestra segunda implementación de \textit{Sepia} (\textbf{sepia_asm2.asm}), el código realiza pasos similares salvo que una vez que se convirtió la \textbf{suma} a punto flotante empaquetado se mueve la suma a los registros XMM2 y XMM3 y en cada uno de los registros se los multiplica directamente por el decimal de cada coordenada ($0.5$, $0.3$ y $0.2$ para rojo, verde y azul respectivamente) utilizando la operación \textbf{mulps} con un registro XMM con los valores de cada decimal, y luego se los convierte nuevamente a double word siguiendo los mismos pasos que el algoritmo anterior.
+
+\begin{tabbing}
+	\textit{cinco}: \= DD \= 0.5, 0.5, 0.5, 0.5 \\
+	\textit{tres}:  \= DD \= 0.3, 0.3, 0.3, 0.3 \\
+	\textit{dos}:   \= DD \= 0.2, 0.2, 0.2, 0.2 \\
+\end{tabbing}
+
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		suma$*0.5$ 3 & suma$*0.5$ 2 & suma$*0.5$ 1 & suma$*0.5$ 0  \\ \hline
+		\multicolumn{4}{c}{XMM1} \\
+		\hline
+		suma$*0.3$ 3 & suma$*0.3$ 2 & suma$*0.3$ 1 & suma$*0.3$ 0  \\ \hline
+		\multicolumn{4}{c}{XMM2} \\
+		\hline
+		suma$*0.2$ 3 & suma$*0.2$ 2 & suma$*0.2$ 1 & suma$*0.2$ 0  \\ 
+		\hline
+		\multicolumn{4}{c}{XMM3}
+	\end{tabular}
+\end{table}

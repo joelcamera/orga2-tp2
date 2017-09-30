@@ -1,0 +1,23 @@
+\subsection{Filtro Cropflip}
+
+\textit{Cropflip} es un filtro muy sencillo en cuanto a su implementación, y el mas rápido en tiempo de ejecución debido a que no es necesario realizar ninguna modificación ni acceso diferenciado a las componentes del pixel.
+Prácticamente se lo puede considerar como un caso de referencia para comparar rendimientos, debido a que lo que se realiza es una copia de memoria, sin necesidad de interpretar su contenido.
+
+Para este filtro implementamos una versión en C y 3 versiones en ASM muy similares, pero con sutiles diferencias, pero con las cuales obtuvimos resultados muy diferentes.
+
+\input{desarrolloCropflipC1}
+\input{desarrolloCropflipASM}
+
+\subsection{Filtro Sepia}
+\textit{Sepia} es un filtro que requiere realizar una operación para cada pixel de forma independiente cambiando la información del color de estos, y después devolver el pixel al lugar que le pertenecía, generando en la imagen un color particular.
+Para este filtro implementamos una versión en C y dos en ASM utilizando SIMD. Ambas implementaciones en ASM son símiles salvo en la forma de realizar las operaciones en cada pixel.
+\input{desarrolloSepiaC1}
+\input{desarrolloSepiaASM1}
+\input{desarrolloSepiaASM2}
+
+\subsection{Filtro Low-Dyn Range}
+\textit{Low-Dyn Range} es un filtro que requiere repetidos accesos a memorias al pixel y sus vecinos, además de múltiples operaciones aritméticas por cada uno de ellos para así obtener el pixel resultante. Implementamos varias versiones de este filtro que consideramos interesantes para su estudio.
+\input{desarrolloLDRC1}
+\input{desarrolloLDRASM1}
+\input{desarrolloLDRASM2}
+\input{ldrpreproc}

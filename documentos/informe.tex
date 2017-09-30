@@ -1,0 +1,162 @@
+% ******************************************************** %
+%              TEMPLATE DE INFORME ORGA2 v0.1              %
+% ******************************************************** %
+% ******************************************************** %
+%                                                          %
+% ALGUNOS PAQUETES REQUERIDOS (EN UBUNTU):                 %
+% ========================================
+%                                                          %
+% texlive-latex-base                                       %
+% texlive-latex-recommended                                %
+% texlive-fonts-recommended                                %
+% texlive-latex-extra?                                     %
+% texlive-lang-spanish (en ubuntu 13.10)                   %
+% ******************************************************** %
+
+
+\documentclass[hidelinks,a4paper,10pt, nofootinbib]{article}
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref} % links en índice
+\usepackage{tabularx} % tablas copadas
+\usepackage{charter}   % tipografia
+\usepackage{graphicx}
+\usepackage{amsmath, amsthm, amssymb}
+\usepackage{listings}
+%\usepackage{makeidx}
+\usepackage{paralist} %itemize inline
+\usepackage[table]{xcolor}
+
+%\usepackage{float}
+%\usepackage{amsfonts}
+%\usepackage{sectsty}
+%\usepackage{charter}
+%\usepackage{wrapfig}
+
+%\lstset{language=C}
+
+% \setcounter{secnumdepth}{2}
+\usepackage{underscore}
+\usepackage{caratula}
+\usepackage{url}
+
+
+% ********************************************************* %
+% ~~~~~~~~              Code snippets             ~~~~~~~~~ %
+% ********************************************************* %
+
+\usepackage{color} % para snipets de codigo coloreados
+\usepackage{fancybox}  % para el sbox de los snipets de codigo
+
+\definecolor{litegrey}{gray}{0.94}
+
+\newenvironment{codesnippet}{%
+	\begin{Sbox}\begin{minipage}{\textwidth}\sffamily\small}%
+	{\end{minipage}\end{Sbox}%
+		\begin{center}%
+		\vspace{-0.4cm}\colorbox{litegrey}{\TheSbox}\end{center}\vspace{0.3cm}}
+
+
+
+% ********************************************************* %
+% ~~~~~~~~         Formato de las páginas         ~~~~~~~~~ %
+% ********************************************************* %
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+
+%\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection\ - #1}}
+
+\fancyhf{}
+
+\fancyhead[LO]{Sección \rightmark} % \thesection\ 
+\fancyfoot[LO]{\small{Joel Esteban Cámera, Alejandro Lavía, Martin Jonas}}
+\fancyfoot[RO]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0.5pt}
+\setlength{\hoffset}{-0.8in}
+\setlength{\textwidth}{16cm}
+%\setlength{\hoffset}{-1.1cm}
+%\setlength{\textwidth}{16cm}
+\setlength{\headsep}{0.5cm}
+\setlength{\textheight}{25cm}
+\setlength{\voffset}{-0.7in}
+\setlength{\headwidth}{\textwidth}
+\setlength{\headheight}{13.1pt}
+
+\renewcommand{\baselinestretch}{1.1}  % line spacing
+
+% ******************************************************** %
+
+
+\begin{document}
+
+
+\thispagestyle{empty}
+\materia{Organización del Computador II}
+\submateria{Primer Cuatrimestre de 2016}
+\titulo{Trabajo Práctico II}
+\subtitulo{Grupo: Más peligroso que mono con navaja}
+\integrante{Joel Esteban Cámera}{257/14}{joel.e.camera@gmail.com}
+\integrante{Alejandro Lavía}{43/11}{lavia.alejandro@gmail.com}
+\integrante{Martin Jonas}{180/05}{martinjonas@gmail.com}
+
+\maketitle
+\newpage
+
+%indice
+\tableofcontents
+
+\newpage
+
+%\normalsize
+\newpage
+
+\section{Introducción}
+\input{introduccion}
+\newpage
+
+
+\section{Desarrollo}
+\input{desarrollo}
+\newpage
+
+\section{Resultados} 
+\input{resultados}
+\newpage
+
+%\begin{figure}
+%  \begin{center}
+%	\includegraphics[scale=0.66]{imagenes/logouba.jpg}
+%	\caption{Descripcion de la figura}
+%	\label{nombreparareferenciar}
+%  \end{center}
+%\end{figure}
+
+
+%\paragraph{\textbf{Titulo del parrafo} } Bla bla bla bla.
+%Esto se muestra en la figura~\ref{nombreparareferenciar}.
+
+
+
+%\begin{codesnippet}
+%\begin{verbatim}
+
+%struct Pepe {
+
+%    ...
+
+%};
+
+%\end{verbatim}
+%\end{codesnippet}
+
+
+\section{Conclusión} 
+\input{conclusion}
+
+
+\end{document}
+

@@ -1,0 +1,24 @@
+
+
+1. Hacer medidiones progresivas usando los siguientes casos "base":
+	a. Caso vacio.
+	b. Caso de loop accediendo a memoria, pero sin hacer nada.
+	c. Caso de loop copiando la imagen.
+
+2. Modificar scripts para que:
+    a. Hacer que los script escupan todos los valores de las corridas
+    b. Buscar el minimo
+    c. Buscar primer promedio, descartar corridas fuera de la std, y tomar promedio  
+
+3. Corridas:
+    a. ASM con SIMD
+    b. ASM sin SIMD
+    c. C con niveles de optimizacion
+
+4. Datos de entrada:
+	a. Imagen std
+	b. Imagenes con poco alto, aumentando ancho
+	c. Imagenes con poco ancho, aumentando alto
+	d. Imagnes aumentando tamano
+	e. Pensar si hay imagenes en particular que modifiquen el tiempo de ejecucion.
+	

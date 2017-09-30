@@ -1,0 +1,32 @@
+El filtro cropflip es un filtro muy sencillo en cuanto a su implementacion, y el mas rapido en tiempo de ejecucion debido a que no es necesario realizar ninguna modificacion ni acceso diferenciado a las componentes del pixel.
+
+Practicamente se lo puede considerar como un caso de referencia para comparar rendimientos, debido a que lo que se realiza es una copia de memoria, sin necesidad de interpretar su contenido.
+
+Para este filtro implementamos una version en C y 3 versiones en ASM muy similares, pero con sutiles diferencias, pero con las cuales obtuvimos resultados muy diferentes.
+
+La implementacion de la version en C funciona con dos loops anidades, recorriendo desde offsetY una cantidad de tamY de filas, y desde el offsetX una cantidad tamX de columnas.
+Luego para cada posicion se copia al destino la estructura bgra_t completa.
+
+(Pseudocodigo de C)
+PTODO y <- RANGO[0..tamY] {
+	PTODO x <- RANGO0[0..tamX] {
+		DEST[ tamY - y - 1][x] <- SRC[ y + offsetY ][ x + offsetX ]
+	}
+}
+
+Las implementaciones de ASM trabajan sobre la imagen como un vector en vez de una matriz.
+Para esto se manejan dos punteros. El de destino apuntando al principio de la ultima fila. 
+Y en el de origien se saltean de la posicion de memoria de inicio el offsetY * anchoFila * bytesPorPixel.
+
+El ciclio de repite tamY veces y realiza lo siguiente:
+	1. Avanza el puntero de origen offsetX * bytesPorPixel.
+	2. Se copian del origen al destino la cantidad tamX de pixels.
+	3. Se saltean los pixeles no copiados de la fila. 
+	   ((anchoDeFila - tamX - offsetX) * bytesPorPixel)
+
+Las 3 versiones de ASM difieren en el punto 2 que es la forma de copiar los pixeles. 
+La version 1 utiliza rep movsq (que repite la copia de quadwords)
+La version 2 realiza un ciclo copiando manualmente de [SRC] a un registro y luego a [DST]
+La version 3 realiza lo mismo que la 2 pero utilizando un registro XMM y por ende copiando de a 16 bytes.
+
+

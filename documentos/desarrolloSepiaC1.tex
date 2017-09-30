@@ -1,0 +1,28 @@
+\subsubsection{Sepia - Versión 1 - C}
+
+La implementación de la versión en C en donde simplemente recorre la estructura con dos ciclos anidados tomando cada uno de los pixels, generando el valor de \textbf{suma}, sumando cada una de las coordenadas de la tupla (sin contar los $\alpha$ que deben permanecer intactos en la operación), para luego agregar \textbf{suma} a cada una de las coordenadas multiplicándolo por el valor correspondiente a cada una ($0,5$ para el \textit{R}, $0,3$ para el \textit{G} y $0,2$ para el \textit{B}).
+
+\begin{table}[h]
+	\centering
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		B & G & R & A  \\ \hline
+		b0 & g0 & r0 & a0  \\ \hline
+		\multicolumn{4}{|c|}{suma $=$ b0 + g0 + r0} \\ \hline
+	\end{tabular}
+\end{table}
+
+Para la multiplicación, lo que se hizo fue tener dos variables temporales una en punto flotante (\textit{parte}) y otra en entero sin signo (\textit{tmp}). Dado que suma es entero sin signo, ya que cada elemento de la tupla lo es, la multiplicamos por el valor $0\text{.}1$f y alojamos el resultado en \textit{parte} ya que es en punto flotante el mismo.
+
+Después a parte lo multiplicamos por $2$, $3$ y $5$ alojando cada resultado en la variable \textit{tmp} que es entera. Cómo la multiplicación es en punto flotante, alojar el resultado en \textit{tmp} genera un truncamiento de éste y, por ende, perdida de precisión.
+A cada coordenada del pixel de salida se compara a \textit{tmp} con $255$, si \textit{tmp} es mayor se define a la coordenada como $255$ sino como \textit{tmp}.
+
+\begin{table}[h]
+	\centering
+	\begin{tabular}{| c | c | c | c |}
+		\hline
+		B & G & R & A  \\ \hline
+		suma$*0.2 \lor 255$ & suma$*0.3 \lor 255$ & suma$*0.5 \lor 255$ & a0  \\ \hline
+		\multicolumn{4}{c}{tmp $>255$ entonces el valor que se inserta es $255$}
+	\end{tabular}
+\end{table}
